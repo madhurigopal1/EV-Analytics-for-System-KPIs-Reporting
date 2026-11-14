@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="evAnalyticsApp">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EV Analytics | KPIs & Reporting</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+  <style>
+    :root{font-family:Inter,Arial,sans-serif;color:#142536;background:#f3f6fa}body{margin:0}.wrap{max-width:1180px;margin:auto;padding:28px}.hero{background:linear-gradient(120deg,#102b42,#147d78);color:white;padding:28px;border-radius:16px}.hero h1{margin:0 0 8px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin:20px 0}.card,section{background:white;border-radius:14px;padding:20px;box-shadow:0 5px 18px #18344d12}.value{font-size:28px;font-weight:700;color:#087e78}.columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #e8edf2}button{background:#087e78;color:white;border:0;border-radius:8px;padding:10px 16px;cursor:pointer}textarea{width:100%;box-sizing:border-box;border:1px solid #ccd6df;border-radius:8px;padding:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f8fa;padding:14px;border-radius:8px}@media(max-width:760px){.columns{grid-template-columns:1fr}.wrap{padding:14px}}
+  </style>
+</head>
+<body ng-controller="DashboardController">
+<main class="wrap">
+  <header class="hero"><h1>EV Analytics</h1><div>Customer, product and commercial KPIs · Reporting & recommendations</div></header>
+  <div class="grid">
+    <article class="card"><div>Customers</div><div class="value">{{summary.customers | number}}</div></article>
+    <article class="card"><div>Products</div><div class="value">{{summary.products | number}}</div></article>
+    <article class="card"><div>Completed orders</div><div class="value">{{summary.completedOrders | number}}</div></article>
+    <article class="card"><div>Revenue (completed)</div><div class="value">{{summary.revenue | currency}}</div></article>
+    <article class="card"><div>Average churn risk</div><div class="value">{{summary.averageChurnRisk * 100 | number:1}}%</div></article>
+  </div>
+  <div class="columns">
+    <section><h2>Customer segments</h2><table><thead><tr><th>Segment</th><th>Count</th><th>Avg income</th><th>Churn</th></tr></thead><tbody><tr ng-repeat="row in segments"><td>{{row.segment}}</td><td>{{row.customerCount | number}}</td><td>{{row.averageIncome | currency}}</td><td>{{row.averageChurnRisk * 100 | number:1}}%</td></tr></tbody></table></section>
+    <section><h2>Product categories</h2><table><thead><tr><th>Category</th><th>Count</th><th>Avg price</th><th>Stock</th></tr></thead><tbody><tr ng-repeat="row in products"><td>{{row.category}}</td><td>{{row.productCount | number}}</td><td>{{row.averagePrice | currency}}</td><td>{{row.availableStock | number}}</td></tr></tbody></table></section>
+  </div>
+  <section style="margin-top:16px"><h2>Conversational KPI assistant</h2><p>Ask about aggregate customer/product KPIs, risks, or a current-to-future roadmap.</p><textarea rows="3" ng-model="question" placeholder="Which customer segment has the highest average churn risk?"></textarea><p><button ng-click="ask()" ng-disabled="busy">{{busy ? 'Thinking…' : 'Ask assistant'}}</button></p><pre>{{answer}}</pre></section>
+  <section style="margin-top:16px"><h2>Recommended roadmap</h2><ol><li>Establish KPI ownership, quality checks, and trusted metric definitions.</li><li>Automate and monitor customer, product, inventory, and transaction ingestion.</li><li>Validate segment-level retention and demand forecasting against business outcomes.</li><li>Operationalize explainable recommendations with human review and impact tracking.</li><li>Scale to service, charging, and fleet lifecycle metrics after data governance is in place.</li></ol></section>
+</main>
+<script>
+angular.module('evAnalyticsApp', []).controller('DashboardController', function($scope,$http){
+  var base='/api'; $scope.summary={}; $scope.segments=[]; $scope.products=[]; $scope.question=''; $scope.answer='Loading dashboard…';
+  $http.get(base+'/kpis').then(function(r){$scope.summary=r.data;},function(){$scope.answer='Dashboard API is unavailable.';});
+  $http.get(base+'/kpis/segments').then(function(r){$scope.segments=r.data;});
+  $http.get(base+'/kpis/products').then(function(r){$scope.products=r.data;});
+  $scope.ask=function(){if(!$scope.question)return;$scope.busy=true;$scope.answer='';$http.post(base+'/chat',{question:$scope.question}).then(function(r){$scope.answer=r.data.answer;},function(){$scope.answer='Could not retrieve an answer. Check API and Bedrock configuration.';}).finally(function(){$scope.busy=false;});};
+});
+</script>
+</body>
+</html>

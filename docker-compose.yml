@@ -1,0 +1,53 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ev_analytics}
+      MYSQL_USER: ${MYSQL_USER:-ev_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-local_dev_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local_root_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  python-analytics:
+    build: ./python
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-ev_app}:${MYSQL_PASSWORD:-local_dev_password}@mysql:3306/${MYSQL_DATABASE:-ev_analytics}
+      GENERATE_ON_START: "true"
+      SYNTHETIC_SEED: "42"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${PYTHON_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  spring-api:
+    build: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-ev_analytics}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-ev_app}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-local_dev_password}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-}
+      SERVER_PORT: 8080
+    depends_on:
+      mysql:
+        condition: service_healthy
+      python-analytics:
+        condition: service_started
+    ports:
+      - "${SPRING_PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
